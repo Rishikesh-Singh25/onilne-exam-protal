@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Available Exams</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="navbar">
+    <a href="student-dashboard.html" class="brand">Exam Portal</a>
+    <div class="nav-links">
+        <a href="student-dashboard.html">Dashboard</a>
+        <a href="result.html">My Results</a>
+        <button class="btn small secondary" onclick="logout()">Logout</button>
+    </div>
+</div>
+
+<div class="container">
+    <h1>Available Exams</h1>
+    <p class="text-muted">Only published exams are shown here.</p>
+
+    <div id="alertBox" class="alert error" style="display:none;"></div>
+    <div id="examList"></div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    requireRole("ROLE_STUDENT");
+
+    async function loadExams() {
+      const list = document.getElementById("examList");
+      try {
+        const response = await apiFetch("/student/exams");
+        const exams = response.data;
+
+        if (exams.length === 0) {
+          list.innerHTML = '<div class="empty-state">No exams are published yet. Check back later.</div>';
+          return;
+        }
+
+        list.innerHTML = exams.map(exam => `
+          <div class="card">
+            <div class="flex-between">
+              <h2>${exam.title}</h2>
+              <span class="text-muted">${exam.duration} min</span>
+            </div>
+            <p class="text-muted">${exam.description || ""}</p>
+            <table style="margin-bottom: 16px;">
+              <tr><td>Questions</td><td>${exam.numberOfQuestions}</td></tr>
+              <tr><td>Total Marks</td><td>${exam.totalMarks}</td></tr>
+              <tr><td>Passing Marks</td><td>${exam.passingMarks}</td></tr>
+            </table>
+            <a href="exam.html?examId=${exam.id}" class="btn">Start Exam</a>
+          </div>
+        `).join("");
+      } catch (err) {
+        showAlert("alertBox", err.message);
+      }
+    }
+
+    loadExams();
+</script>
+</body>
+</html>

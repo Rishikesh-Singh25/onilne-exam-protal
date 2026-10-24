@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="navbar">
+    <a href="admin-dashboard.html" class="brand">Exam Portal — Admin</a>
+    <div class="nav-links">
+        <span class="text-muted" id="welcomeText"></span>
+        <button class="btn small secondary" onclick="logout()">Logout</button>
+    </div>
+</div>
+
+<div class="container">
+    <h1>Admin Dashboard</h1>
+    <p class="text-muted">Manage exams, questions, and view student results.</p>
+
+    <div class="card">
+        <h2>Quick Actions</h2>
+        <a href="manage-exams.html" class="btn">Manage Exams</a>
+        <a href="admin-results.html" class="btn secondary" style="margin-left: 10px;">View All Results</a>
+    </div>
+
+    <div id="statsCard" class="card"></div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    requireRole("ROLE_ADMIN");
+    document.getElementById("welcomeText").textContent = "Hi, " + getName();
+
+    async function loadStats() {
+      const statsCard = document.getElementById("statsCard");
+      try {
+        const examsRes = await apiFetch("/admin/exams");
+        const resultsRes = await apiFetch("/admin/results");
+
+        const exams = examsRes.data;
+        const results = resultsRes.data;
+        const published = exams.filter(e => e.status === "PUBLISHED").length;
+
+        statsCard.innerHTML = `
+          <h2>Overview</h2>
+          <table>
+            <tr><td>Total Exams Created</td><td><strong>${exams.length}</strong></td></tr>
+            <tr><td>Published Exams</td><td><strong>${published}</strong></td></tr>
+            <tr><td>Total Attempts Graded</td><td><strong>${results.length}</strong></td></tr>
+          </table>
+        `;
+      } catch (err) {
+        statsCard.innerHTML = '<div class="alert error">' + err.message + '</div>';
+      }
+    }
+
+    loadStats();
+</script>
+</body>
+</html>

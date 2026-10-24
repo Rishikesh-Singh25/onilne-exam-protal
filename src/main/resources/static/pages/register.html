@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Register - Exam Portal</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="container" style="max-width: 420px; margin-top: 60px;">
+    <div class="card">
+        <h1>Create an Account</h1>
+        <div id="alertBox" class="alert error" style="display:none;"></div>
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" minlength="6" required>
+            </div>
+            <div class="form-group">
+                <label for="role">I am a</label>
+                <select id="role" required>
+                    <option value="ROLE_STUDENT">Student</option>
+                    <option value="ROLE_ADMIN">Admin / Teacher</option>
+                </select>
+            </div>
+            <button type="submit" class="btn" style="width:100%;">Register</button>
+        </form>
+        <p class="text-muted mt-16">Already have an account? <a href="login.html">Login here</a></p>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideAlert("alertBox");
+
+      const payload = {
+        name: document.getElementById("name").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        password: document.getElementById("password").value,
+        role: document.getElementById("role").value,
+      };
+
+      try {
+        const response = await apiFetch("/auth/register", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        setAuth(response.data);
+        window.location.href = response.data.role === "ROLE_ADMIN"
+          ? "admin-dashboard.html"
+          : "student-dashboard.html";
+      } catch (err) {
+        showAlert("alertBox", err.message);
+      }
+    });
+</script>
+</body>
+</html>

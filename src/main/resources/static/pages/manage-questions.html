@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Questions</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="navbar">
+    <a href="admin-dashboard.html" class="brand">Exam Portal — Admin</a>
+    <div class="nav-links">
+        <a href="manage-exams.html">Back to Exams</a>
+        <button class="btn small secondary" onclick="logout()">Logout</button>
+    </div>
+</div>
+
+<div class="container">
+    <h1 id="examTitleHeading">Manage Questions</h1>
+    <div id="alertBox" class="alert" style="display:none;"></div>
+
+    <div class="card">
+        <h2>Add Question</h2>
+        <form id="questionForm">
+            <div class="form-group">
+                <label for="questionText">Question Text</label>
+                <textarea id="questionText" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="marks">Marks</label>
+                <input type="number" id="marks" min="1" required>
+            </div>
+            <div class="form-group">
+                <label>Options (leave unused ones blank — minimum 2 required)</label>
+                <input type="text" id="optA" placeholder="Option A" class="mt-16">
+                <input type="text" id="optB" placeholder="Option B" style="margin-top:8px;">
+                <input type="text" id="optC" placeholder="Option C" style="margin-top:8px;">
+                <input type="text" id="optD" placeholder="Option D" style="margin-top:8px;">
+            </div>
+            <div class="form-group">
+                <label for="correctOption">Correct Option</label>
+                <select id="correctOption" required>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                </select>
+            </div>
+            <button type="submit" class="btn">Add Question</button>
+        </form>
+    </div>
+
+    <div id="questionList"></div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    requireRole("ROLE_ADMIN");
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const examId = urlParams.get("examId");
+
+    async function loadExamHeading() {
+      try {
+        const response = await apiFetch(`/admin/exams/${examId}`);
+        document.getElementById("examTitleHeading").textContent = "Questions for: " + response.data.title;
+      } catch (err) {
+        showAlert("alertBox", err.message);
+      }
+    }
+
+    async function loadQuestions() {
+      const list = document.getElementById("questionList");
+      try {
+        const response = await apiFetch(`/admin/exams/${examId}/questions`);
+        const questions = response.data;
+
+        if (questions.length === 0) {
+          list.innerHTML = '<div class="empty-state">No questions added yet.</div>';
+          return;
+        }
+
+        list.innerHTML = questions.map((q, idx) => `
+          <div class="question-block">
+            <div class="flex-between">
+              <h2>Q${idx + 1}. ${q.questionText}</h2>
+              <span class="text-muted">${q.marks} marks</span>
+            </div>
+            ${q.options.map(opt => `
+              <div class="option-row">
+                <span style="font-weight:${opt.optionLabel === q.correctOption ? '700' : '400'}; color:${opt.optionLabel === q.correctOption ? 'var(--success)' : 'inherit'};">
+                  ${opt.optionLabel}. ${opt.optionText} ${opt.optionLabel === q.correctOption ? '✓ (Correct)' : ''}
+                </span>
+              </div>
+            `).join("")}
+            <button class="btn small danger mt-16" onclick="deleteQuestion(${q.id})">Delete</button>
+          </div>
+        `).join("");
+      } catch (err) {
+        showAlert("alertBox", err.message);
+      }
+    }
+
+    document.getElementById("questionForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideAlert("alertBox");
+
+      const options = [
+        document.getElementById("optA").value.trim(),
+        document.getElementById("optB").value.trim(),
+        document.getElementById("optC").value.trim(),
+        document.getElementById("optD").value.trim(),
+      ].filter(opt => opt.length > 0);
+
+      const payload = {
+        questionText: document.getElementById("questionText").value.trim(),
+        marks: parseInt(document.getElementById("marks").value, 10),
+        correctOption: document.getElementById("correctOption").value,
+        options: options,
+      };
+
+      try {
+        await apiFetch(`/admin/exams/${examId}/questions`, { method: "POST", body: JSON.stringify(payload) });
+        showAlert("alertBox", "Question added successfully", "success");
+        document.getElementById("questionForm").reset();
+        loadQuestions();
+      } catch (err) {
+        showAlert("alertBox", err.message);
+      }
+    });
+
+    async function deleteQuestion(questionId) {
+      if (!confirm("Delete this question?")) return;
+      try {
+        await apiFetch(`/admin/questions/${questionId}`, { method: "DELETE" });
+        loadQuestions();
+      } catch (err) {
+        showAlert("alertBox", err.message);
+      }
+    }
+
+    loadExamHeading();
+    loadQuestions();
+</script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Student Dashboard</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="navbar">
+    <a href="student-dashboard.html" class="brand">Exam Portal</a>
+    <div class="nav-links">
+        <span class="text-muted" id="welcomeText"></span>
+        <button class="btn small secondary" onclick="logout()">Logout</button>
+    </div>
+</div>
+
+<div class="container">
+    <h1>Welcome back!</h1>
+    <p class="text-muted">Here's a quick overview of your progress.</p>
+
+    <div id="perfCard" class="card"></div>
+
+    <div class="card">
+        <h2>Quick Actions</h2>
+        <a href="available-exams.html" class="btn">View Available Exams</a>
+        <a href="result.html" class="btn secondary" style="margin-left: 10px;">My Results</a>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    requireRole("ROLE_STUDENT");
+    document.getElementById("welcomeText").textContent = "Hi, " + getName();
+
+    async function loadPerformance() {
+      const perfCard = document.getElementById("perfCard");
+      try {
+        const response = await apiFetch("/student/performance");
+        const p = response.data;
+
+        if (p.totalExamsAttempted === 0) {
+          perfCard.innerHTML = '<div class="empty-state">You haven\'t attempted any exams yet. Head to "Available Exams" to get started.</div>';
+          return;
+        }
+
+        perfCard.innerHTML = `
+          <h2>Your Performance</h2>
+          <table>
+            <tr><td>Total Exams Attempted</td><td><strong>${p.totalExamsAttempted}</strong></td></tr>
+            <tr><td>Passed</td><td><span class="badge pass">${p.totalPassed}</span></td></tr>
+            <tr><td>Failed</td><td><span class="badge fail">${p.totalFailed}</span></td></tr>
+            <tr><td>Average Percentage</td><td><strong>${p.averagePercentage}%</strong></td></tr>
+            <tr><td>Best Percentage</td><td><strong>${p.bestPercentage}%</strong></td></tr>
+          </table>
+        `;
+      } catch (err) {
+        perfCard.innerHTML = '<div class="alert error">' + err.message + '</div>';
+      }
+    }
+
+    loadPerformance();
+</script>
+</body>
+</html>

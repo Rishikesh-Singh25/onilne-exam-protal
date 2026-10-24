@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Exams</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="navbar">
+    <a href="admin-dashboard.html" class="brand">Exam Portal — Admin</a>
+    <div class="nav-links">
+        <a href="admin-dashboard.html">Dashboard</a>
+        <a href="admin-results.html">All Results</a>
+        <button class="btn small secondary" onclick="logout()">Logout</button>
+    </div>
+</div>
+
+<div class="container">
+    <h1>Manage Exams</h1>
+    <div id="alertBox" class="alert" style="display:none;"></div>
+
+    <div class="card">
+        <h2 id="formTitle">Create New Exam</h2>
+        <form id="examForm">
+            <input type="hidden" id="examId">
+            <div class="form-group">
+                <label for="title">Title</label>
+                <input type="text" id="title" required>
+            </div>
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="duration">Duration (minutes)</label>
+                <input type="number" id="duration" min="1" required>
+            </div>
+            <div class="form-group">
+                <label for="passingMarks">Passing Marks</label>
+                <input type="number" id="passingMarks" min="0" required>
+            </div>
+            <button type="submit" class="btn" id="submitBtn">Create Exam</button>
+            <button type="button" class="btn secondary" id="cancelEditBtn" onclick="resetForm()" style="display:none;">Cancel Edit</button>
+        </form>
+    </div>
+
+    <div id="examList"></div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    requireRole("ROLE_ADMIN");
+
+    async function loadExams() {
+      const list = document.getElementById("examList");
+      try {
+        const response = await apiFetch("/admin/exams");
+        const exams = response.data;
+
+        if (exams.length === 0) {
+          list.innerHTML = '<div class="empty-state">No exams created yet.</div>';
+          return;
+        }
+
+        list.innerHTML = exams.map(exam => `
+          <div class="card">
+            <div class="flex-between">
+              <h2>${exam.title} <span class="badge ${exam.status === 'PUBLISHED' ? 'published' : 'draft'}">${exam.status}</span></h2>
+              <span class="text-muted">${exam.duration} min · ${exam.totalMarks} marks</span>
+            </div>
+            <p class="text-muted">${exam.description || ""}</p>
+            <a href="manage-questions.html?examId=${exam.id}" class="btn small">Manage Questions</a>
+            <button class="btn small secondary" onclick="editExam(${exam.id}, '${escapeQuotes(exam.title)}', '${escapeQuotes(exam.description || "")}', ${exam.duration}, ${exam.passingMarks})">Edit</button>
+            ${exam.status === "PUBLISHED"
+              ? `<button class="btn small" onclick="togglePublish(${exam.id}, false)">Unpublish</button>`
+              : `<button class="btn small success" onclick="togglePublish(${exam.id}, true)">Publish</button>`}
+            <button class="btn small danger" onclick="deleteExam(${exam.id})">Delete</button>
+          </div>
+        `).join("");
+      } catch (err) {
+        showAlert("alertBox", err.message);
+      }
+    }
+
+    function escapeQuotes(str) { return str.replace(/'/g, "\\'"); }
+
+    function editExam(id, title, description, duration, passingMarks) {
+      document.getElementById("examId").value = id;
+      document.getElementById("title").value = title;
+      document.getElementById("description").value = description;
+      document.getElementById("duration").value = duration;
+      document.getElementById("passingMarks").value = passingMarks;
+      document.getElementById("formTitle").textContent = "Edit Exam";
+      document.getElementById("submitBtn").textContent = "Update Exam";
+      document.getElementById("cancelEditBtn").style.display = "inline-block";
+      window.scrollTo(0, 0);
+    }
+
+    function resetForm() {
+      document.getElementById("examForm").reset();
+      document.getElementById("examId").value = "";
+      document.getElementById("formTitle").textContent = "Create New Exam";
+      document.getElementById("submitBtn").textContent = "Create Exam";
+      document.getElementById("cancelEditBtn").style.display = "none";
+    }
+
+    document.getElementById("examForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideAlert("alertBox");
+
+      const id = document.getElementById("examId").value;
+      const payload = {
+        title: document.getElementById("title").value.trim(),
+        description: document.getElementById("description").value.trim(),
+        duration: parseInt(document.getElementById("duration").value, 10),
+        passingMarks: parseInt(document.getElementById("passingMarks").value, 10),
+      };
+
+      try {
+        if (id) {
+          await apiFetch(`/admin/exams/${id}`, { method: "PUT", body: JSON.stringify(payload) });
+          showAlert("alertBox", "Exam updated successfully", "success");
+        } else {
+          await apiFetch("/admin/exams", { method: "POST", body: JSON.stringify(payload) });
+          showAlert("alertBox", "Exam created successfully", "success");
+        }
+        resetForm();
+        loadExams();
+      } catch (err) {
+        showAlert("alertBox", err.message);
+      }
+    });
+
+    async function togglePublish(id, publish) {
+      try {
+        await apiFetch(`/admin/exams/${id}/${publish ? "publish" : "unpublish"}`, { method: "PATCH" });
+        loadExams();
+      } catch (err) {
+        showAlert("alertBox", err.message);
+      }
+    }
+
+    async function deleteExam(id) {
+      if (!confirm("Delete this exam and all its questions? This cannot be undone.")) return;
+      try {
+        await apiFetch(`/admin/exams/${id}`, { method: "DELETE" });
+        loadExams();
+      } catch (err) {
+        showAlert("alertBox", err.message);
+      }
+    }
+
+    loadExams();
+</script>
+</body>
+</html>

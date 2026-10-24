@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Results</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="navbar">
+    <a href="student-dashboard.html" class="brand">Exam Portal</a>
+    <div class="nav-links">
+        <a href="student-dashboard.html">Dashboard</a>
+        <a href="available-exams.html">Available Exams</a>
+        <button class="btn small secondary" onclick="logout()">Logout</button>
+    </div>
+</div>
+
+<div class="container">
+    <h1>My Results</h1>
+    <div id="alertBox" class="alert error" style="display:none;"></div>
+    <div id="resultsList"></div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    requireRole("ROLE_STUDENT");
+
+    async function loadResults() {
+      const list = document.getElementById("resultsList");
+      try {
+        const response = await apiFetch("/student/results");
+        const results = response.data;
+
+        if (results.length === 0) {
+          list.innerHTML = '<div class="empty-state">No results yet. Attempt an exam to see it here.</div>';
+          return;
+        }
+
+        list.innerHTML = `
+          <div class="card">
+            <table>
+              <tr>
+                <th>Exam</th><th>Score</th><th>Percentage</th><th>Status</th><th>Date</th>
+              </tr>
+              ${results.map(r => `
+                <tr>
+                  <td>${r.examTitle}</td>
+                  <td>${r.marksObtained} / ${r.totalMarks}</td>
+                  <td>${r.percentage}%</td>
+                  <td><span class="badge ${r.resultStatus === 'PASS' ? 'pass' : 'fail'}">${r.resultStatus}</span></td>
+                  <td class="text-muted">${new Date(r.createdAt).toLocaleString()}</td>
+                </tr>
+              `).join("")}
+            </table>
+          </div>
+        `;
+      } catch (err) {
+        showAlert("alertBox", err.message);
+      }
+    }
+
+    loadResults();
+</script>
+</body>
+</html>

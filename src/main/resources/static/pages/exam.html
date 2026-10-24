@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Attempt Exam</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="navbar">
+    <span class="brand" id="examTitleNav">Exam</span>
+    <div class="nav-links">
+        <span class="timer-badge" id="timerBadge">--:--</span>
+    </div>
+</div>
+
+<div class="container">
+    <div id="alertBox" class="alert error" style="display:none;"></div>
+    <div id="questionsContainer"></div>
+
+    <div class="card flex-between">
+        <span class="text-muted">Answers save automatically as you select an option.</span>
+        <button class="btn success" id="submitBtn" onclick="submitExam()">Submit Exam</button>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    requireRole("ROLE_STUDENT");
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const examId = urlParams.get("examId");
+
+    let attemptId = null;
+    let deadline = null;
+    let timerInterval = null;
+
+    async function startExam() {
+      try {
+        const response = await apiFetch(`/student/exams/${examId}/start`, { method: "POST" });
+        const data = response.data;
+
+        attemptId = data.attemptId;
+        document.getElementById("examTitleNav").textContent = data.examTitle;
+
+        // Client-side display only — the backend independently
+        // enforces the real deadline server-side (Phase 12).
+        deadline = new Date(data.startTime).getTime() + data.durationInMinutes * 60 * 1000;
+        startTimer();
+
+        renderQuestions(data.questions);
+      } catch (err) {
+        showAlert("alertBox", err.message);
+      }
+    }
+
+    function renderQuestions(questions) {
+      const container = document.getElementById("questionsContainer");
+      container.innerHTML = questions.map((q, idx) => `
+        <div class="question-block">
+          <h2>Q${idx + 1}. ${q.questionText} <span class="text-muted">(${q.marks} marks)</span></h2>
+          ${q.options.map(opt => `
+            <div class="option-row">
+              <input type="radio" name="q_${q.id}" id="opt_${opt.id}" value="${opt.optionLabel}"
+                     onchange="saveAnswer(${q.id}, '${opt.optionLabel}')">
+              <label for="opt_${opt.id}">${opt.optionLabel}. ${opt.optionText}</label>
+            </div>
+          `).join("")}
+        </div>
+      `).join("");
+    }
+
+    async function saveAnswer(questionId, selectedOption) {
+      try {
+        await apiFetch(`/student/attempts/${attemptId}/answers`, {
+          method: "POST",
+          body: JSON.stringify({ questionId, selectedOption }),
+        });
+      } catch (err) {
+        // Most likely cause here is time expiring mid-exam — surface
+        // it and push the student toward submitting immediately.
+        showAlert("alertBox", err.message);
+      }
+    }
+
+    function startTimer() {
+      const badge = document.getElementById("timerBadge");
+      timerInterval = setInterval(() => {
+        const remaining = deadline - Date.now();
+
+        if (remaining <= 0) {
+          badge.textContent = "00:00";
+          clearInterval(timerInterval);
+          alert("Time is up! Submitting your exam now.");
+          submitExam();
+          return;
+        }
+
+        const minutes = Math.floor(remaining / 60000);
+        const seconds = Math.floor((remaining % 60000) / 1000);
+        badge.textContent = String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
+      }, 1000);
+    }
+
+    async function submitExam() {
+      clearInterval(timerInterval);
+      document.getElementById("submitBtn").disabled = true;
+
+      try {
+        await apiFetch(`/student/attempts/${attemptId}/submit`, { method: "POST" });
+        window.location.href = `result.html?attemptSubmitted=true`;
+      } catch (err) {
+        showAlert("alertBox", err.message);
+        document.getElementById("submitBtn").disabled = false;
+      }
+    }
+
+    startExam();
+</script>
+</body>
+</html>
